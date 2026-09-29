@@ -3,13 +3,13 @@
   "configurePresets": [
     {
       "name": "release",
-      "displayName": "npurun release (clang-cl, Ninja, Zen 5)",
+      "displayName": "npurun release (clang, Ninja, Zen 5)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_C_COMPILER": "clang-cl",
-        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "LLAMA_BUILD_TESTS": "OFF",
         "GGML_OPENMP": "OFF",
