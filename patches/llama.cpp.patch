@@ -1,0 +1,78 @@
+diff --git a/ggml/src/ggml-cpu/ggml-cpu.cpp b/ggml/src/ggml-cpu/ggml-cpu.cpp
+index 1df0f2bb9..36b4ab70f 100644
+--- a/ggml/src/ggml-cpu/ggml-cpu.cpp
++++ b/ggml/src/ggml-cpu/ggml-cpu.cpp
+@@ -3,6 +3,9 @@
+ #include "ggml-cpu.h"
+ #include "repack.h"
+ #include "traits.h"
++#ifdef GGML_USE_CPU_NPU
++#    include "npu/npu.h"
++#endif
+ #include "ggml-impl.h"
+ #include "amx/amx.h"
+ 
+@@ -43,6 +46,13 @@ std::vector<ggml_backend_buffer_type_t> & ggml_backend_cpu_get_extra_buffer_type
+     static std::vector<ggml_backend_buffer_type_t> bufts = []() {
+         std::vector<ggml_backend_buffer_type_t> bufts;
+ 
++#ifdef GGML_USE_CPU_NPU
++        // first, so PQ2_0 weights it supports go to the NPU split path
++        if (ggml_backend_cpu_npu_buffer_type()) {
++            bufts.push_back(ggml_backend_cpu_npu_buffer_type());
++        }
++#endif
++
+ #if defined(__AMX_INT8__) && defined(__AVX512VNNI__)
+         if (ggml_backend_amx_buffer_type()) {
+             bufts.push_back(ggml_backend_amx_buffer_type());
+diff --git a/ggml/src/ggml-cpu/repack.cpp b/ggml/src/ggml-cpu/repack.cpp
+index 4471c9ab1..4447857ab 100644
+--- a/ggml/src/ggml-cpu/repack.cpp
++++ b/ggml/src/ggml-cpu/repack.cpp
+@@ -5567,3 +5567,12 @@ ggml_backend_buffer_type_t ggml_backend_cpu_repack_buffer_type(void) {
+ 
+     return &ggml_backend_cpu_buffer_type_repack;
+ }
++
++// Used by the NPU extra buffer (npu/npu.cpp) for the CPU share of split weights.
++void * ggml_cpu_repack_traits(const struct ggml_tensor * t) {
++    return (void *) ggml_repack_get_optimal_repack_type(t);
++}
++
++int ggml_cpu_repack_tensor(void * traits, struct ggml_tensor * t, const void * data, size_t size) {
++    return ((ggml::cpu::repack::tensor_traits_base *) traits)->repack(t, data, size);
++}
+diff --git a/ggml/src/ggml-cpu/repack.h b/ggml/src/ggml-cpu/repack.h
+index 8f25c1b18..f05426626 100644
+--- a/ggml/src/ggml-cpu/repack.h
++++ b/ggml/src/ggml-cpu/repack.h
+@@ -266,4 +266,9 @@ void ggml_gemm_iq4_nl_16x1_q8_0_generic(int n, float * GGML_RESTRICT s, size_t b
+ 
+ #if defined(__cplusplus)
+ } // extern "C"
++
++// NPU extra buffer helpers (npu/npu.cpp): repack traits for a tensor (or
++// nullptr) and an in-place repack of `data` into the tensor.
++void * ggml_cpu_repack_traits(const struct ggml_tensor * t);
++int    ggml_cpu_repack_tensor(void * traits, struct ggml_tensor * t, const void * data, size_t size);
+ #endif
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index cb6cf1f28..28ca913ae 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -183,6 +183,14 @@ llama_context::llama_context(
+     }
+ 
+     cparams.n_rs_seq = params.n_rs_seq;
++    // npurun: keep a 1-token recurrent rollback window by default (override with
++    // LLAMA_N_RS_SEQ=n, 0 disables). For qwen35 this enables the rows-mode GDN
++    // path, which reads/writes each layer's state in place instead of gathering
++    // and copying it back every token: identical output, much less memory traffic.
++    if (cparams.n_rs_seq == 0) {
++        const char * e = getenv("LLAMA_N_RS_SEQ");
++        cparams.n_rs_seq = e ? (uint32_t) std::max(0, atoi(e)) : (llm_arch_supports_rs_rollback(model.arch) ? 1u : 0u);
++    }
+     if (cparams.n_rs_seq > 0 && !llm_arch_supports_rs_rollback(model.arch)) {
+         LLAMA_LOG_DEBUG("%s: n_rs_seq=%u requested but model does not support recurrent partial rollback; clamping to 0\n",
+                         __func__, cparams.n_rs_seq);

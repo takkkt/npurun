@@ -1,0 +1,5 @@
+build/
+dist/
+models/
+__pycache__/
+*.gguf

@@ -1,0 +1,36 @@
+name: Build (Windows, NPU)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-npu:
+    # Compile-only: hosted runners have no NPU. Kernel/runtime correctness is checked
+    # on hardware with npurun-test (see kernel/README.md).
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Ninja
+        run: choco install ninja -y --no-progress
+
+      - name: Configure
+        run: cmake --preset release
+
+      - name: Build
+        run: cmake --build build -j 4 --target llama-cli llama-server llama-bench npurun-test npurun-bw

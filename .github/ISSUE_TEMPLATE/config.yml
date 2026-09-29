@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/wybe-labs/npurun/discussions
+    about: Ask questions, share benchmarks and propose features here.
+  - name: General llama.cpp issues
+    url: https://github.com/ggml-org/llama.cpp/issues
+    about: Problems that also happen with GGML_NPU=0 are usually upstream llama.cpp issues.

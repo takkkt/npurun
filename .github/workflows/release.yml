@@ -1,0 +1,55 @@
+name: Release
+
+# Push a tag like v0.2.0 to build the Windows zip and publish a GitHub release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)build and publish'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows-npu:
+    runs-on: windows-2025
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+          submodules: true
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Ninja
+        run: choco install ninja -y --no-progress
+
+      - name: Build
+        run: |
+          cmake --preset release
+          cmake --build build -j 4
+
+      - name: Package
+        shell: pwsh
+        run: scripts/package.ps1 -Version $env:TAG
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = "docs/releases/$env:TAG.md"
+          $noteArgs = if (Test-Path $notes) { @('--notes-file', $notes) } else { @('--generate-notes') }
+          gh release view $env:TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG (Get-ChildItem dist/*.zip*).FullName --clobber
+          } else {
+            gh release create $env:TAG (Get-ChildItem dist/*.zip*).FullName --title "npurun $env:TAG" @noteArgs
+          }

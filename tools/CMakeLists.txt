@@ -1,0 +1,20 @@
+# npurun developer tools:
+#   npurun-test  correctness + timing of NPU matrix groups against a CPU reference
+#   npurun-bw    CPU / NPU / combined DRAM read bandwidth
+foreach(tool test bw)
+    set(name npurun-${tool})
+    if (tool STREQUAL "test")
+        set(src test_npurun.cpp)
+    else()
+        set(src bw_test.cpp)
+    endif()
+    add_executable(${name} ${src} ${NPU_DIR}/npurun.cpp)
+    target_include_directories(${name} PRIVATE ${NPU_DIR} ${NPU_DIR}/vendor ${NPU_XRT_DIR}/include)
+    target_link_libraries(${name} PRIVATE ${NPU_XRT_DIR}/lib/xrt_coreutil.lib)
+    target_compile_features(${name} PRIVATE cxx_std_17)
+    if (NOT MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${name} PRIVATE -mavx2 -mfma)
+    else()
+        target_compile_options(${name} PRIVATE /arch:AVX2)
+    endif()
+endforeach()

@@ -1,0 +1,50 @@
+name: Bug report
+description: Something does not work or is slower than expected
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: npurun version
+      description: Release zip name or commit hash
+    validations:
+      required: true
+  - type: input
+    id: cpu
+    attributes:
+      label: Processor and RAM
+      placeholder: Ryzen AI 9 465, 32 GB
+    validations:
+      required: true
+  - type: textarea
+    id: xrt
+    attributes:
+      label: NPU driver
+      description: Output of `C:\Windows\System32\AMD\xrt-smi.exe examine`
+      render: text
+  - type: input
+    id: model
+    attributes:
+      label: Model file
+      placeholder: Ternary-Bonsai-2-27B-PQ2_0.gguf
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      render: bat
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Full console output (the lines starting with `npu:` matter most)
+      render: text
