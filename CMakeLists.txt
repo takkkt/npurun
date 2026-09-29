@@ -28,10 +28,10 @@ endif()
 
 # --- npurun hooks into llama.cpp (idempotent) -----------------------------------
 set(NPURUN_PATCH ${NPURUN_ROOT}/patches/llama.cpp.patch)
-execute_process(COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${NPURUN_PATCH}
+execute_process(COMMAND ${GIT_EXECUTABLE} apply --ignore-whitespace --reverse --check ${NPURUN_PATCH}
                 WORKING_DIRECTORY ${LLAMA_DIR} RESULT_VARIABLE already OUTPUT_QUIET ERROR_QUIET)
 if (NOT already EQUAL 0)
-    execute_process(COMMAND ${GIT_EXECUTABLE} apply --whitespace=nowarn ${NPURUN_PATCH}
+    execute_process(COMMAND ${GIT_EXECUTABLE} apply --ignore-whitespace --whitespace=nowarn ${NPURUN_PATCH}
                     WORKING_DIRECTORY ${LLAMA_DIR} RESULT_VARIABLE rc ERROR_VARIABLE err)
     if (NOT rc EQUAL 0)
         message(FATAL_ERROR "npurun: patches/llama.cpp.patch does not apply to third_party/llama.cpp:\n${err}"
