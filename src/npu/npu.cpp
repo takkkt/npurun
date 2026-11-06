@@ -435,7 +435,7 @@ class Traits : public ggml::cpu::tensor_traits {
                 gs->cpu_out.resize(gs->members.size());
                 for (size_t j = 0; j < gs->members.size(); j++) {
                     Weight *m = gs->members[j];
-                    if (m != w) gs->cpu_out[j].resize((size_t)ntok * (m->M - m->Mn));
+                    gs->cpu_out[j].resize((size_t)ntok * (m->M - m->Mn));
                 }
             }
             ggml_barrier(params->threadpool); // cpu_out sized
@@ -444,9 +444,9 @@ class Traits : public ggml::cpu::tensor_traits {
                 // the CPU kernels share one chunk counter and work buffer and end
                 // without a barrier: separate consecutive calls
                 if (j > 0) ggml_barrier(params->threadpool);
-                if (m == w) cpu_rows(params, op, m, (float *)op->data + m->Mn, ldd);
-                else cpu_rows(params, op, m, gs->cpu_out[j].data(), m->M - m->Mn);
+                cpu_rows(params, op, m, gs->cpu_out[j].data(), m->M - m->Mn);
             }
+            ggml_barrier(params->threadpool); // all CPU rows are ready to copy
             if (params->ith == 0) {
                 const auto t1 = std::chrono::steady_clock::now();
                 g.worker->wait();
@@ -458,12 +458,10 @@ class Traits : public ggml::cpu::tensor_traits {
                 gs->x_hash = h;
                 gs->ntok = ntok;
                 gs->valid = true;
-                const float *r = gs->g->result(w->member);
-                for (int t = 0; t < ntok; t++)
-                    std::memcpy((float *)op->data + t * ldd, r + (int64_t)t * w->Mn, (size_t)w->Mn * sizeof(float));
             }
-        } else if (params->ith == 0) {
-            // Follower: both parts were computed by the group's leader node.
+        }
+        if (params->ith == 0) {
+            // A cache hit can be for any member, including the previous leader.
             const float *r = gs->g->result(w->member);
             const std::vector<float> &c = gs->cpu_out[w->member];
             const int64_t mc = w->M - w->Mn;
